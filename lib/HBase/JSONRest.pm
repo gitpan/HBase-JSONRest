@@ -11,7 +11,7 @@ use JSON::XS qw(decode_json encode_json);
 use Time::HiRes qw(gettimeofday time);
 use Data::Dumper;
 
-our $VERSION = "0.010";
+our $VERSION = "0.011";
 
 my %INFO_ROUTES = (
     version => '/version',
@@ -117,12 +117,14 @@ sub version {
 # get
 #
 # usage:
-#   my ($records, $err) = $hbase->get(
-#        table   => 'table_name',
-#        where   => {
-#            key_begins_with => "key_prefix"
-#        },
-#    );
+#
+# my $records = $hbase->get({
+#    table       => $table_name,
+#    where       => {
+#        key_begins_with => "$key_prefix"
+#    },
+# });
+#
 sub get {
     my $self   = shift;
     my $params = shift;
@@ -163,7 +165,7 @@ sub _get_tiny {
     });
 
     if ( ! $rs->{success} ) {
-       $self->{last_error} = _extract_error_tiny($rs); 
+       $self->{last_error} = _extract_error_tiny($uri, $rs);
        return undef;
     }
 
@@ -402,6 +404,7 @@ sub put {
 # parse error
 #
 sub _extract_error_tiny {
+    my $uri = shift;
     my $res = shift;
 
     return if $res->{success};
@@ -416,8 +419,13 @@ sub _extract_error_tiny {
         $info = $msg || $res->{status} || Dumper($res);
     }
 
-    return { type => $exception, info => $info };
+    my $error_tiny = { type => $exception, info => $info, uri => $uri };
 
+    if ($info =~ m/Service Unavailable/) {
+        $error_tiny->{guess} = 'Undefined table?';
+    }
+
+    return $error_tiny;
 }
 
 1;
@@ -610,7 +618,7 @@ Information on error is stored in hbase object under key last error:
 
 =head1 VERSION
 
-Current version: 0.010
+Current version: 0.011
 
 =head1 AUTHOR
 
@@ -621,6 +629,8 @@ bdevetak - Bosko Devetak (cpan:BDEVETAK) <bosko.devetak@gmail.com>
 theMage, C<<  <cpan:NEVES> >>, <mailto:themage@magick-source.net>
 
 Sawyer X, C<< <xsawyerx at cpan.org> >>
+
+Eric Herman, C<< <eherman at cpan.org> >>
 
 =head1 COPYRIGHT
 
